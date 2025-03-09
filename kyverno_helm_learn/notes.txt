@@ -1,7 +1,11 @@
+# Install Kyverno in Standalone Mode.
+
+# Installing Kyverno in HA Mode.
 helm install kyverno kyverno/kyverno -n sup-sec --create-namespace \
 --set admissionController.replicas=3 \
 --set backgroundController.replicas=2 \
 --set cleanupController.replicas=2 \
 --set reportsController.replicas=2
 
+# Install kyverno's PSP 
 helm install kyverno-policies kyverno/kyverno-policies -n kyverno
