@@ -1,0 +1,232 @@
+bao secrets enable database
+
+bao write database/config/openbao-db \
+    plugin_name="postgresql-database-plugin" \
+    allowed_roles="openbao-role" \
+    connection_url="postgresql://{{username}}:{{password}}@postgresql.backend.svc.cluster.local:5432/openbao" \
+    username="postgres" \
+    password="DRuCgT33ND" \
+    password_authentication="scram-sha-256"
+
+bao write database/roles/openbao-role \
+    db_name="openbao-db" \
+    creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; \
+        GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";" \
+    default_ttl="1m" \
+    max_ttl="3m"
+
+bao lease revoke 
+
+
+
+
+Start here
+
+bao write kubernetes/roles/jenkins-role \
+    allowed_kubernetes_namespaces="default" \
+    service_account_name="jenkins-service-account" \
+    token_default_ttl="10m"
+
+kubectl apply -f secret-auditor.yaml
+
+bao write kubernetes/creds/jenkins-role kubernetes_namespace=default # it's for the jenkins-service-account from default namespace
+
+curl -sk $(kubectl config view --minify -o 'jsonpath={.clusters[].cluster.server}')/api/v1/namespaces/default/pods --header "Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlRTRVNXOUVRbEx2Y2JDRjlyeG1LeHpUeVVZZVdZR25na2YzV2dvT3BNaWMifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoxNzMwNjU2ODk0LCJpYXQiOjE3MzA2NTYyOTQsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwianRpIjoiZTdiNWM1OTctN2NkZC00NmM2LWI4ZjQtZDk1MjZhMjM3NTNkIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJkZWZhdWx0Iiwic2VydmljZWFjY291bnQiOnsibmFtZSI6ImplbmtpbnMtc2VydmljZS1hY2NvdW50IiwidWlkIjoiNDZlNzk4YWYtZTYwZi00ZDNiLThiMmYtZjhlYjk3NjAyNGYyIn19LCJuYmYiOjE3MzA2NTYyOTQsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmplbmtpbnMtc2VydmljZS1hY2NvdW50In0.OkY-WeJUS8mv4aDC6KjzAqsuhAZrMpFCJKh6eaW0YD1il3YuwU5t1INCz59UfeFOK1E4NfX5iQlaDRCe2L_0oHqHnhfDbEhQOs4k2RZ5mPaHVQlV_1udRoJD8VEPwH-8dZ-7GTeWbsOdtpL-fjlB1AKAYuPFMBbkVBbbRSZUe5TGCqzpPlA62ADfb-Ub04x0gBQ7VHKNwqBgIJKhM3nqobVTiAT-8uTVm_UjImeWqeit2yzFlVBAq_4f6TqL2yFjEN0-UrInEk6KvMGfxvebpBq4y8r_TqNLsVOqa2CSwlhyL8X7f2A2SlBjdFTsHTi8iC3PdWUbks0ZbeWD4Up5ng"
+
+
+=====OpenBao auth kubernetes======
+kubectl apply -f secret-reader-sa.yaml
+
+bao write kubernetes/roles/secret-reader-role \
+    allowed_kubernetes_namespaces="default" \
+    service_account_name="secret-reader-service-account" \
+    token_default_ttl="90d"
+
+
+bao write kubernetes/creds/secret-reader-role kubernetes_namespace=default
+
+
+bao write auth/kubernetes/config \
+    token_reviewer_jwt="eyJhbGciOiJSUzI1NiIsImtpZCI6IlRTRVNXOUVRbEx2Y2JDRjlyeG1LeHpUeVVZZVdZR25na2YzV2dvT3BNaWMifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoxNzYyMjQ5MDkzLCJpYXQiOjE3MzA3MTMwOTMsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwianRpIjoiOGY0ZTIxNzItYmY3NS00MmVkLTk2OTMtYjU5ZTMwY2M5MTMwIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJzdXAtc2VjIiwibm9kZSI6eyJuYW1lIjoiZG9ja2VyLWRlc2t0b3AiLCJ1aWQiOiJmZTJmNjhlZS0xNDAwLTQwMTMtYmVmYS00MDRmM2I3ODc3OTMifSwicG9kIjp7Im5hbWUiOiJvcGVuYmFvLTAiLCJ1aWQiOiI3Y2YyMTYyOS1lNGYzLTRjNDItODA3ZS1mNTExYTczMWNiNjkifSwic2VydmljZWFjY291bnQiOnsibmFtZSI6Im9wZW5iYW8iLCJ1aWQiOiJmMDMwMTA2YS0yOWJiLTRlNmQtYTk1Yi1lNGFmZmEzN2JlZDYifSwid2FybmFmdGVyIjoxNzMwNzE2NzAwfSwibmJmIjoxNzMwNzEzMDkzLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6c3VwLXNlYzpvcGVuYmFvIn0.DHwhQs5u3Cps5I0rukOCGH_tNN1L1PyF6_QOz1kxZr5ZDwA3SLPd-zAWA0mlJggIBrSqMX0ELifSweRwNPn3mHHedeaDCffFwXjK6ueQxwmEkqNRIoc4OpiXniz8PZI9Q1E6iO5cU4-xxcLHs6vHxJC8d2EBHEUxLv4UibBRZhPm2ZB4bVni7nH_6lvHi3EDEbjS739z8aRXDEN-dIq2T3_O-SLNG60Aavc8kwXNjqjMOR6fQiZ6FB97JrDDEUGUQq8OQIihwiNKuKgHB09gK7XSDU2Gnqc-G4w2FK8alIYVJxvQcIcnmBVaqnE7-CgZREbB9Et0-Vo_x4hqBHcR-A" \
+    kubernetes_host="https://${KUBERNETES_PORT_443_TCP_ADDR}:443" \
+    kubernetes_ca_cert="LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCVENDQWUyZ0F3SUJBZ0lJSE9PVGxmaGRseDh3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TkRFd01Ua3hPRE00TURoYUZ3MHpOREV3TVRjeE9EUXpNRGhhTUJVeApFekFSQmdOVkJBTVRDbXQxWW1WeWJtVjBaWE13Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLCkFvSUJBUUM2QmNFaWtGcStYV2hCQURDdUNJZENlL0JuWkZNN3pvL2ZSZjNxbVBSbTNKY2F2dWI4YVYxQkltLzAKT2RyQ3pOek9FbU1PK2JMa3dURlBLNktON3daUm9pZkdySGI0eTY1Nkd6b0IzUjRmbHp6cE9hdU5mY0VON283RQpGaE9KbVZPL3RRNkZoaExBUmJsVVEwQldOelV4Z0ZGaDVNMWNab3VscDlaa1Q3WmxadXpnSjJ5clcyUHB4OHhJCjA3YVJkdW9BbGsvZk5zWTlwRFV6SE1jcXY2TFZ2aUNSS3JOZzhnK2k2L0h6a3RrZ3hCc21vQklnV0xZMjFIM3AKVzZLOUJZT1ZRaXNqKzdDTGhPQTJOSFhkNmxGTXRNZHEzYjFjSXh5NUNkRGpCVVRMQW5sNzNMMElJejhydldQSgpuU3JIQnd3VEpxcHU5QnUrMldjNldGVzBIR3dQQWdNQkFBR2pXVEJYTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUIwR0ExVWREZ1FXQkJRODJqV01ENXpjUUE4em1vbm5EeXNkNHM3QlRqQVYKQmdOVkhSRUVEakFNZ2dwcmRXSmxjbTVsZEdWek1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQ1JPeENQVDdVaApVdDhERXVTOW4wdUlCYkhnbDI0RmZYaW5BbHRDQTVXRVJVV29sT1RsZFh1OWdmU0doU3NUN1hBbXZPL2ZkSklwClZRREU4YlQ2TVNtVEtiS2tsUng4OTV1Nnc3STU3ZTRvMzdUZkJUV2cveW1zSFQ2U3RNVGh5RjFrRlp3OEFzQlUKdFhYS2xMaTVJcVpnTFBqeDlOQ3I3UC9FNG1aZ2dXQjhBbFBrT1BuaDFTb0xLYVhaRnpaZm03b3h1VjJOUUpsdwpweERHT3QrTUl4NlJyQW5tamlFRVRzWVdvYmRYcE56U2hydVA5RTAyT2xjZVpyYzd4bTE5NS93Z3BxcitYWlBCCko0dXFzV0VpNkJMcTkyVUR0Zld6RmVuVjM0S0hoL2pySFlpT3R6Y1gvY2lpTXlCV0ZqM1E4cGdGNndmS3dYS1YKMDZSN2Y3cUExcGdICi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K"
+
+bao kv put -mount=secret test-secret foo=a bar=b
+
+# /tmp/test-secret-reader-policy
+path "secret/data/test-secret" {
+  capabilities = ["read", "list"]
+}
+
+bao policy write test-secret-reader-policy /tmp/test-secret-reader-policy
+
+bao write auth/kubernetes/role/secret-reader-role \
+    bound_service_account_names=secret-reader-service-account \
+    bound_service_account_namespaces=default \
+    policies=test-secret-reader-policy \
+    ttl=1h
+
+
+
+=====Auth Kubernetes=====
+kubectl cp openbao.sh openbao-0:/tmp/ && kubectl exec openbao-0 -- /bin/sh /tmp/openbao.sh init && kubectl cp openbao-0:/tmp/openbao_seal.txt ./openbao_seal.txt
+
+bao secrets enable -path=internal kv-v2
+
+bao kv put internal/database/config username="db-readonly-username" password="db-secret-password"
+
+bao kv get internal/database/config
+
+bao auth enable kubernetes
+
+bao write auth/kubernetes/config \
+      kubernetes_host="https://$KUBERNETES_PORT_443_TCP_ADDR:443"
+
+
+bao policy write internal-app - <<EOF
+path "internal/data/database/config" {
+   capabilities = ["read"]
+}
+EOF
+
+bao write auth/kubernetes/role/internal-app \
+      bound_service_account_names=internal-app \
+      bound_service_account_namespaces=* \
+      policies=internal-app \
+      ttl=24h
+
+kubectl create sa internal-app -n default
+
+
+=====Custom Auth Kubernetes=====
+kubectl cp openbao.sh openbao-0:/tmp/ && kubectl exec openbao-0 -- /bin/sh /tmp/openbao.sh init && kubectl cp openbao-0:/tmp/openbao_seal.txt ./openbao_seal.txt
+
+bao secrets enable -path=secret -version=2 kv
+
+bao kv put -mount=secret test-api foo="a" bar="b"
+
+bao kv get -mount=secret test-api
+
+bao auth enable kubernetes
+
+bao write auth/kubernetes/config \
+      kubernetes_host="https://$KUBERNETES_PORT_443_TCP_ADDR:443"
+
+
+bao policy write test-api - <<EOF
+path "secret/data/test-api" {
+   capabilities = ["read"]
+}
+EOF
+
+bao write auth/kubernetes/role/test-api \
+      bound_service_account_names=secret-reader \
+      bound_service_account_namespaces=* \
+      policies=test-api \
+      ttl=24h
+
+kubectl create sa secret-reader -n default
+
+=====Custom Auth Kubernetes default and staging namespace=====
+kubectl cp openbao.sh openbao-0:/tmp/ && kubectl exec openbao-0 -- /bin/sh /tmp/openbao.sh init && kubectl cp openbao-0:/tmp/openbao_seal.txt ./openbao_seal.txt
+
+bao secrets enable -path=secret-uat -version=2 kv
+
+bao secrets enable -path=secret-staging -version=2 kv
+
+bao kv put -mount=secret-uat test-api foo="uat_a" bar="uat_b"
+
+bao kv get -mount=secret-uat test-api
+
+bao kv put -mount=secret-staging test-api foo="staging_a" bar="staging_b"
+
+bao kv get -mount=secret-staging test-api
+
+bao auth enable kubernetes
+
+bao write auth/kubernetes/config \
+      kubernetes_host="https://$KUBERNETES_PORT_443_TCP_ADDR:443"
+
+
+bao policy write uat-test-api - <<EOF
+path "secret-uat/data/test-api" {
+   capabilities = ["read"]
+}
+EOF
+
+bao policy write staging-test-api - <<EOF
+path "secret-staging/data/test-api" {
+   capabilities = ["read"]
+}
+EOF
+
+bao write auth/kubernetes/role/uat-test-api \
+      bound_service_account_names=secret-reader \
+      bound_service_account_namespaces=default \
+      policies=uat-test-api \
+      ttl=24h
+
+bao write auth/kubernetes/role/staging-test-api \
+      bound_service_account_names=secret-reader \
+      bound_service_account_namespaces=staging \
+      policies=staging-test-api \
+      ttl=24h
+
+kubectl create sa secret-reader -n default
+kubectl create sa secret-reader -n staging
+
+
+
+========= UAT ===========
+bao audit enable file file_path=/openbao/audit/audit.log
+
+# bao secrets enable -path=secret-uat -version=2 kv
+
+bao secrets enable -path=secret-staging -version=2 kv
+
+
+bao kv put -mount=secret-uat secrets foo="a" bar="b"
+
+bao auth enable kubernetes
+
+bao write auth/kubernetes/config \
+      kubernetes_host="https://$KUBERNETES_PORT_443_TCP_ADDR:443" \
+      
+bao policy write secret-uat - <<EOF
+path "secret-uat/data/secrets" {
+   capabilities = ["read"]
+}
+EOF
+
+bao policy write secret-staging - <<EOF
+path "secret-staging/data/secrets" {
+   capabilities = ["read"]
+}
+EOF
+
+bao write auth/kubernetes/role/secret-uat \
+      bound_service_account_names=secret-reader \
+      bound_service_account_namespaces=default,openbao \
+      policies=secret-uat \
+      ttl=5m
+
+bao write auth/kubernetes/role/secret-staging \
+      bound_service_account_names=secret-reader \
+      bound_secrvice_account_namespace_selector=staging \
+      bound_service_account_namespaces=staging,openbao \
+      policies=secret-staging \
+      ttl=5m
+
+
+
+=======Database root rotation==========
+vault secrets enable database
+
+vault write database/config/test-database \
+     plugin_name=postgresql-database-plugin \
+     connection_url="postgresql://{{username}}:{{password}}@postgres-postgresql.postgres.svc.cluster.local/test-database?sslmode=disable" \
+     allowed_roles="*" \
+     username="test" \
+     password="test"
+
+vault write -force database/rotate-root/test-database

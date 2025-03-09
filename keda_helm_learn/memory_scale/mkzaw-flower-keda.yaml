@@ -1,0 +1,20 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: mkzaw-flower-deploy
+  namespace: keda-test
+spec:
+  minReplicaCount: 1
+  maxReplicaCount: 2
+  cooldownPeriod: 15
+  scaleTargetRef:
+    name: mkzaw-flower-deploy
+  triggers:
+  - type: memory
+    metricType: Utilization
+    metadata:
+      value: "80"
+  - type: cpu
+    metricType: Utilization
+    metadata:
+      value: "110"

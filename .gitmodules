@@ -1,0 +1,3 @@
+[submodule "kyverno_helm_learn/LFS255"]
+	path = kyverno_helm_learn/LFS255
+	url = https://github.com/lftraining/LFS255-code-public.git

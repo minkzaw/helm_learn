@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mkzaw-flower-deploy
+    app.kubernetes.io/instance: mkzaw-flower-deploy
+  name: mkzaw-flower-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mkzaw-flower-deploy
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: mkzaw-flower-deploy
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        resources:
+          requests:
+            cpu: 20m
+            memory: 20Mi
+          limits:
+            cpu: 30m
+            memory: 30Mi
+status: {}
