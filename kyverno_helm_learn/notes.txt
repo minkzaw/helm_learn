@@ -1,4 +1,5 @@
 # Install Kyverno in Standalone Mode.
+helm install kyverno kyverno/kyverno -n kyverno --create-namespace -f ./values.yaml --wait-for-jobs
 
 # Installing Kyverno in HA Mode.
 helm install kyverno kyverno/kyverno -n sup-sec --create-namespace \
